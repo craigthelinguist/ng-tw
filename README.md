@@ -84,3 +84,19 @@ module.exports = {
 For more instructions and documentation:
 
 https://ng-tw.mtda.me
+
+### Development
+
+If working on the project, you will likely want both `ng-tw` and `sandbox` running side-by-side, making edits to the components in `ng-tw`, and then using them in `sandbox`.
+
+Start them up with the following commands:
+
+```
+npm run watch  # builds ng-tw
+```
+
+```
+npm run ng serve  # serves up sandbox
+```
+
+

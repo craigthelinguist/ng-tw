@@ -75,14 +75,24 @@ export class OptionComponent<T = any> implements OnInit {
         //
         // Select and emit event
         this._emitSelectionChangeEvent(isUserInput);
-        // set select if we have a value
-        if (this.value) this.selected = true;
     }
 
-    deselect(isUserInput: boolean = false): void {
-        //
-        // Deselect and emit event
+    /**
+     * `Selects the option while indicating the selection came from the user. Used to
+     * determine if the select's view -> model callback should be invoked.`
+     */
+    selectViaInteraction(): void {
+        if (!this.disabled) {
+            this._emitSelectionChangeEvent(true);
+        }
+    }
+
+    deselect(): void {
         this.selected = false;
+    }
+
+    toggle(isUserInput: boolean = false): void {
+        this.selected = !this.selected;
     }
 
     /**
@@ -126,17 +136,6 @@ export class OptionComponent<T = any> implements OnInit {
 
     getInnerHTML(forceHTML: boolean = false): string | null {
         return this.textOnly !== false && forceHTML === false ? this.getLabel() : this.contentElement?.nativeElement?.innerHTML || null;
-    }
-
-    /**
-     * `Selects the option while indicating the selection came from the user. Used to
-     * determine if the select's view -> model callback should be invoked.`
-     */
-    selectViaInteraction(): void {
-        if (!this.disabled) {
-            this.selected = true;
-            this._emitSelectionChangeEvent(true);
-        }
     }
 
     scrollIntoView() {

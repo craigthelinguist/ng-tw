@@ -71,10 +71,19 @@ export class SelectComponent implements ControlValueAccessor, OnInit, AfterConte
     @Input() public compareWith: (o1: any, o2: any) => boolean = (o1: any, o2: any) => o1 === o2;
     @Input()
     get value(): any {
-        return this.innerValue;
+        return this._multiple ? this.innerValues : this.innerValue;
     }
     set value(newValue: any) {
-        this.selectOption(newValue, null, false);
+        if (this._multiple) {
+            this.setMultipleOptions(newValue, null, false);
+        } else {
+            this.selectOption(newValue, null, false);
+        }
+    }
+
+    @Input()
+    set multiple(param: string) {
+        this._multiple = true;
     }
 
     @ViewChild('arrowContainer', { static: true }) public arrowContainer!: ElementRef<HTMLDivElement>;
@@ -86,6 +95,10 @@ export class SelectComponent implements ControlValueAccessor, OnInit, AfterConte
     public onTouched = () => {};
 
     public innerValue: any = null;
+
+    // This is used when it is a multiple select.
+    public innerValues: any[] = [];
+
     public get htmlValue(): string | null {
         //
         // Validate inner value
@@ -98,6 +111,7 @@ export class SelectComponent implements ControlValueAccessor, OnInit, AfterConte
     public wasTouched: boolean = false;
     public isOpen: boolean = false;
     public overlayWidth!: string;
+    public _multiple: boolean = false;
 
     private _keyManager!: ActiveDescendantKeyManager<OptionComponent>;
     private _config: TwSelectConfig['select'] = this.selectConfig.config.select;
@@ -166,7 +180,9 @@ export class SelectComponent implements ControlValueAccessor, OnInit, AfterConte
         this._initKeyManager();
 
         this.optionSelectionChanges.subscribe((event) => {
-            this.onSelect(event.source, event.isUserInput, event.innerHTML);
+            this._multiple
+                ? this.onMultiSelect(event.source, event.isUserInput, event.innerHTML)
+                : this.onSelect(event.source, event.isUserInput, event.innerHTML);
             this.cdr.markForCheck();
         });
 
@@ -174,13 +190,18 @@ export class SelectComponent implements ControlValueAccessor, OnInit, AfterConte
             // Defer setting the value in order to avoid the "Expression
             // has changed after it was checked" errors from Angular.
             Promise.resolve().then(() => {
-                this.selectOption(this.innerValue, null, false, true);
+                this._multiple
+                    ? this.onNewMultipleOptionsSet(this.innerValues, null, false, true)
+                    : this.selectOption(this.innerValue, null ,false, true);
             });
         });
     }
 
     writeValue(value: any) {
-        this.selectOption(value, null, false);
+        this._multiple
+            ? this.setMultipleOptions(value, null, false)
+            : this.selectOption(value, null, false);
+
         this.cdr.markForCheck();
     }
 
@@ -220,13 +241,21 @@ export class SelectComponent implements ControlValueAccessor, OnInit, AfterConte
 
         //
         // Scroll if we have an active item
-        if (this._keyManager.activeItem) this._keyManager.activeItem.setActiveStylesWithDelay();
+        if (!this._multiple) {
+            if (this._keyManager.activeItem) this._keyManager.activeItem.setActiveStylesWithDelay();
+        }
     }
 
     closePanel() {
         //
         // Update manager active item
-        if (this.innerValue) this._updateKeyManagerActiveItem(this.innerValue);
+        if (this.hasValue()) {
+            if (this._multiple) {
+                this._keyManager.setActiveItem(-1);
+            } else {
+                this._updateKeyManagerActiveItem(this.innerValue);
+            }
+        }
 
         // close
         this.isOpen = false;
@@ -234,6 +263,78 @@ export class SelectComponent implements ControlValueAccessor, OnInit, AfterConte
 
     backdropClick() {
         this.closePanel();
+    }
+
+    hasValue(): boolean {
+        if (this._multiple) {
+            return this.innerValues.length > 0;
+        } else {
+            return !!(this.innerValue);
+        }
+    }
+
+    onNewMultipleOptionsSet(oldValues: any, innerHTML: string | null, touched: boolean, forceUpdate = false) {
+        // Update the options based on the old selected values
+        const updatedValues: any[] = [];
+
+        //
+        // Skip if we don't have options
+        if (!this.options) {
+            return;
+        }
+
+        this.options.forEach(opt => {
+            if (oldValues.find((oldValue: any) => this.compareWith(opt.value, oldValue))) {
+                opt.select(false, false);
+                updatedValues.push(opt.value);
+            } else {
+                opt.deselect();
+            }
+        });
+
+        //
+        // Emit the new selected values.
+        this.innerValues = updatedValues;
+        this.onChange(updatedValues);
+
+        //
+        // Update manager active item
+        this._keyManager.setActiveItem(-1);
+    }
+
+    setMultipleOptions(newValues: any, innerHTML: string | null, touched: boolean, forceUpdate = false) {
+        if (this.innerValues === newValues && forceUpdate === false) {
+            return;
+        }
+
+        //
+        // Skip if we don't have options
+        if (!this.options) {
+            return;
+        }
+
+        //
+        // Set new values and emit
+        newValues = newValues ?? [];  // treat null or undefined like empty list
+        this.options.forEach(opt => {
+            if (newValues.find((newValue: any) => this.compareWith(opt.value, newValue))) {
+                opt.select(false, false);
+            } else {
+                opt.deselect();
+            }
+        })
+
+        this.innerValues = newValues;
+        this.onChange(this.innerValues);
+
+        // Mark as touched if this was made by a user interaction
+        if (touched === true) {
+            this.markAsTouched();
+        }
+
+        //
+        // Set focus to the first item
+        this._keyManager.setActiveItem(-1);
     }
 
     selectOption(newValue: any, innerHTML: string | null, touched: boolean, forceUpdate = false) {
@@ -271,7 +372,7 @@ export class SelectComponent implements ControlValueAccessor, OnInit, AfterConte
         // Loop options and deselect all except the selected one
         this.options.forEach((option) => {
             if (option.selected === true && option.id !== source.id) {
-                option.deselect();
+                option.deselect(isUserInput);
             }
         });
 
@@ -282,6 +383,39 @@ export class SelectComponent implements ControlValueAccessor, OnInit, AfterConte
         //
         // Close
         this.closePanel();
+    }
+
+    onMultiSelect(source: OptionComponent, isUserInput: boolean, innerHTML: string | null) {
+        const index = this.innerValues.findIndex(innerValue => this.compareWith(innerValue, source.value));
+        if (index === -1) {
+            // item is not selected; add it to inner values
+            this.innerValues.push(source.value);
+        } else {
+            // it is already selected; remove it from inner values
+            this.innerValues.splice(index, 1);
+        }
+
+        source.toggle(isUserInput);
+
+        //
+        // Emit the new selected values.
+        this.onChange(this.innerValues);
+
+        //
+        // Mark as touched if this was made by a user interaction.
+        if (isUserInput === true) {
+            this.markAsTouched();
+        }
+
+        //
+        // Skip if we don't have options
+        if (!this.options) {
+            return;
+        }
+
+        //
+        // Update manager active item
+        this._updateKeyManagerActiveItem(source.value);
     }
 
     handleKeydown(event: KeyboardEvent) {
@@ -345,19 +479,18 @@ export class SelectComponent implements ControlValueAccessor, OnInit, AfterConte
         // Update focus for different values
         if (!this.compareWith(manager.activeItem?.value, value)) {
             //
-            // Deselect current active item(which is the old one and will be changed ahead)
-            if (manager.activeItem?.selected === true) manager.activeItem?.deselect();
-
-            //
             // Find selected option index
             const correspondingOption = this.options.find((option: OptionComponent) => {
                 return option.value != null && this.compareWith(option.value, value);
             });
+
             // validate and update active item
             if (correspondingOption) manager.setActiveItem(correspondingOption);
             else manager.setActiveItem(-1);
         }
     }
+
+
 
     getClasses() {
         //

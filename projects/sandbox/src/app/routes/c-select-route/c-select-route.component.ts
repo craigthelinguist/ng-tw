@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { UntypedFormControl } from '@angular/forms';
 import { cloneDeep } from 'lodash';
+import {first, shareReplay, Subject, Subscription, tap} from "rxjs";
 
 @Component({
     selector: 'app-c-select-route',
@@ -209,6 +210,9 @@ export class CSelectRouteComponent implements OnInit {
     public selectCompareWithInitialValueControl: UntypedFormControl = new UntypedFormControl({ value: null, disabled: false });
     public selectWithInputControl: UntypedFormControl = new UntypedFormControl({ value: null, disabled: false });
     public selectWithModel: string = 'value-1';
+
+    public multiSelectControl: UntypedFormControl = new UntypedFormControl({ value: [], disabled: false });
+    multiSelectValues$ = this.multiSelectControl.valueChanges;
 
     constructor() {}
 
