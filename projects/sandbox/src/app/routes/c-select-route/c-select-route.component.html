@@ -184,6 +184,30 @@
                 Selected Value: {{ selectWithModel ? selectWithModel : '---' }}
             </div>
         </div>
+
+        <div class="demo-row">
+            <div class="demo-row-title">Multi Select</div>
+
+            <div class="demo-row-content md:flex-1">
+                <tw-select multiple class="w-64 max-w-full" [formControl]="multiSelectControl" placeholder="Select multiple options">
+                    <tw-option activeClass="bg-gray-100" selectedClass="font-bold" *ngFor="let item of options" [value]="item.value">
+                        {{ item.label }}
+                    </tw-option>
+                </tw-select>
+            </div>
+
+            <div class="md:flex-1" *ngIf="multiSelectValues$ | async as values">
+                Selected Value:
+                <ng-container [ngSwitch]="values.length === 0">
+                    <span *ngSwitchCase="true">---</span>
+                    <span *ngSwitchCase="false">
+                        <ng-container *ngFor="let value of values">
+                            {{ value }}
+                        </ng-container>
+                    </span>
+                </ng-container>
+            </div>
+        </div>
     </div>
 
     <h3>Usage</h3>

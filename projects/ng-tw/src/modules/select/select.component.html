@@ -1,17 +1,26 @@
 <span
     class="block truncate"
-    [ngClass]="{'block': !innerValue}"
-    [hidden]="innerValue"
+    [ngClass]="{'block': !hasValue()}"
+    [hidden]="hasValue()"
 >
-    {{ placeholder}}
+    {{ placeholder }}
 </span>
 
 <span
+    *ngIf="!_multiple"
     class="block truncate"
     [innerHtml]="htmlValue"
-    [ngClass]="{'block': innerValue}"
-    [hidden]="!innerValue"
+    [ngClass]="{'block': hasValue()}"
+    [hidden]="!hasValue()"
 ></span>
+
+<span
+    *ngIf="_multiple"
+    class="block truncate"
+    [ngClass]="{'block': hasValue()}"
+    [hidden]="!hasValue()">
+    {{ innerValues.length + " selected" }}
+</span>
 
 <style>
     .custom-arrow:empty {
